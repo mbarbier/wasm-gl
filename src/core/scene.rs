@@ -1,22 +1,19 @@
 use std::{cell::RefCell, rc::Rc};
 
-use super::object3d::GraphNode;
+use super::object3d::Node;
 
 pub struct Scene {
-    // pub objects: Vec<Box<dyn GraphNode>>,
-    pub objects: Vec<Rc<RefCell<dyn GraphNode>>>,
+    pub root: Rc<RefCell<Node>>,
 }
 
 impl Scene {
     pub fn new() -> Scene {
-        Scene { objects: Vec::new() }
+        Scene {
+            root: Rc::new(RefCell::new(Node::new())),
+        }
     }
 
-    // pub fn add(&mut self, object: Box<dyn GraphNode>) {
-    //     self.objects.push(object);
-    // }
-
-    pub fn add(&mut self, object: Rc<RefCell<dyn GraphNode>>) {
-        self.objects.push(object);
+    pub fn add_child(&mut self, object: Rc<RefCell<Node>>) {
+        self.root.borrow_mut().add_child(self.root.clone(), object);
     }
 }

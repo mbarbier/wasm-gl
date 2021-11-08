@@ -1,9 +1,11 @@
+use std::{cell::RefCell, rc::Rc};
+
 use cgmath::{perspective, Deg, Matrix4};
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::WebGl2RenderingContext;
 use weblog::console_log;
 
-use super::scene::Scene;
+use super::{object3d::Node, scene::Scene};
 
 pub struct Renderer {
     pub canvas: web_sys::HtmlCanvasElement,
@@ -59,9 +61,7 @@ impl Renderer {
     }
 
     pub fn draw(&self, scene: &mut Scene, camera: &Matrix4<f32>, _dt: f32) -> Result<(), JsValue> {
-        scene.objects.iter().for_each(|node| {
-            node.borrow_mut().update();
-        });
+        update_rec(&scene.root);
 
         let rendering_context = RenderingContext {
             gl: &self.context,
@@ -69,12 +69,38 @@ impl Renderer {
             camera_matrix: camera,
         };
 
-        scene.objects.iter().for_each(|node| {
-            node.borrow_mut().render(&rendering_context);
-        });
+        self.context.clear_color(0.0, 0.0, 0.0, 1.0);
+        self.context.clear_depth(1.);
+        self.context.clear(WebGl2RenderingContext::COLOR_BUFFER_BIT | WebGl2RenderingContext::DEPTH_BUFFER_BIT);
+
+        render_rec(&scene.root, &rendering_context);
 
         Ok(())
     }
+}
+
+fn update_rec(node: &Rc<RefCell<Node>>) {
+    node.borrow_mut().update();
+
+    // console_log!(format!("update {:?} {:?}", n.name.as_ref(), n.transform.matrix_world));
+    node.as_ref().borrow().children.iter().for_each(|f| {
+        update_rec(f);
+    });
+}
+
+fn render_rec(node: &Rc<RefCell<Node>>, rendering_context: &RenderingContext) {
+    let n = node.borrow_mut();
+    if n.renderer.is_some() {
+        // console_log!("render ", n.name.as_ref());
+        n.renderer
+            .as_ref()
+            .unwrap()
+            .borrow_mut()
+            .render(&n.transform, rendering_context);
+    }
+    n.children.iter().for_each(|f| {
+        render_rec(f, rendering_context);
+    });
 }
 
 pub struct RenderingContext<'a, 'b> {
