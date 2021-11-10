@@ -7,8 +7,9 @@ use weblog::{console_error, console_log};
 
 use crate::core::{
     geometry::Geometry,
+    graph::Node,
     material::Material,
-    object3d::{Mesh, Node},
+    object3d::{Mesh, Object3d},
     renderer::Renderer,
     scene::Scene,
     shapes,
@@ -24,11 +25,11 @@ pub fn example1() -> Result<(Box<dyn FnMut(f64, f64) -> ()>, Box<dyn FnMut() -> 
 
     // Add elements
     let cube0 = create_cube(2.5, String::from("cube0"));
-    scene.add_child(cube0.clone());
+    scene.add_child(&cube0);
 
     let cube1 = create_cube(1.5, String::from("cube1"));
-    cube1.borrow_mut().transform.position = vec3(5.0, 0.0, 0.0);
-    cube0.borrow_mut().add_child(cube0.clone(), cube1.clone());
+    cube1.value.borrow_mut().transform.position = vec3(5.0, 0.0, 0.0);
+    Node::add_child(&cube0, &cube1);
 
     // Create renderer
     let mut renderer = Renderer::new("canvas");
@@ -54,7 +55,7 @@ pub fn example1() -> Result<(Box<dyn FnMut(f64, f64) -> ()>, Box<dyn FnMut() -> 
 
         //rotate mesh
         {
-            let mut m = cube0.borrow_mut();
+            let mut m = cube0.value.borrow_mut();
             m.transform.quaternion = Quaternion::from_angle_y(Deg(ellapsed * 90.0)) * m.transform.quaternion;
         }
 
@@ -68,7 +69,7 @@ pub fn example1() -> Result<(Box<dyn FnMut(f64, f64) -> ()>, Box<dyn FnMut() -> 
     Ok((Box::new(resize_fn), Box::new(update_fn)))
 }
 
-fn create_cube(size: f32, name: String) -> Rc<RefCell<Node>> {
+fn create_cube(size: f32, name: String) -> Rc<Node<Object3d>> {
     let cube = shapes::cube(size, size, size);
 
     let mut geometry = Geometry::new();
@@ -80,10 +81,10 @@ fn create_cube(size: f32, name: String) -> Rc<RefCell<Node>> {
     material.vertex_shader = include_str!("core/shaders/vertex.glsl");
     material.fragment_shader = include_str!("core/shaders/fragment.glsl");
 
-    let mesh0 = Rc::new(RefCell::new(Mesh::new(material, geometry)));
-    let mesh = Rc::new(RefCell::new(Node::new()));
-    mesh.borrow_mut().renderer.replace(mesh0);
-    mesh.borrow_mut().name = Some(name);
+    let mesh0 = RefCell::new(Box::new(Mesh::new(material, geometry)));
+    let node = Node::new_rc(Object3d::new());
+    node.value.borrow_mut().renderer.replace(mesh0);
+    node.value.borrow_mut().name = Some(name);
 
-    mesh
+    node
 }

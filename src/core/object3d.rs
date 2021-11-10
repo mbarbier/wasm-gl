@@ -4,7 +4,7 @@ use cgmath::{vec3, Matrix4, Quaternion, SquareMatrix, Vector3};
 use web_sys::WebGl2RenderingContext;
 use weblog::console_log;
 
-use super::{geometry::Geometry, material::Material, renderer::RenderingContext};
+use super::{geometry::Geometry, graph::Node, material::Material, renderer::RenderingContext};
 
 pub trait Renderable {
     fn render(&mut self, transform: &Transform, rendering_context: &RenderingContext);
@@ -31,44 +31,30 @@ impl Transform {
 }
 
 
-pub struct Node {
+pub struct Object3d {
     pub name: Option<String>,
     pub transform: Transform,
-    pub renderer: Option<Rc<RefCell<dyn Renderable>>>,
-
-    pub parent: Option<Rc<RefCell<Node>>>,
-    pub children: Vec<Rc<RefCell<Node>>>,
+    pub renderer: Option<RefCell<Box<dyn Renderable>>>,
 }
 
-impl Node {
-    pub fn new() -> Node {
-        Node {
+impl Object3d {
+    pub fn new() -> Object3d {
+        Object3d {
             name: None,
             transform: Transform::new(),
             renderer: None,
-
-            parent: None,
-            children: Vec::new(),
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, node: &Rc<Node<Object3d>>) {
         self.transform.matrix = Matrix4::from(self.transform.quaternion) * Matrix4::from_translation(self.transform.position);
 
-        if self.parent.is_none() {
+        let parent = node.parent.borrow().upgrade();
+        if parent.is_none() {
             self.transform.matrix_world = self.transform.matrix;
         } else {
-            self.transform.matrix_world = self.parent.as_ref().unwrap().borrow().transform.matrix_world * self.transform.matrix;
+            self.transform.matrix_world = parent.as_ref().unwrap().value.borrow().transform.matrix_world * self.transform.matrix;
         }
-    }
-
-    pub fn set_parent(&mut self, node: Rc<RefCell<Node>>) {
-        self.parent.replace(node);
-    }
-
-    pub fn add_child(&mut self, parent: Rc<RefCell<Node>>, node: Rc<RefCell<Node>>) {
-        self.children.push(node.clone());
-        node.borrow_mut().set_parent(parent);
     }
 
 }
